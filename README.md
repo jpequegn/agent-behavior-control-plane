@@ -38,8 +38,22 @@ untrusted instruction from authorizing a tool call. Every policy decision carrie
 policy's `sha256:` digest, version, and evaluated flag snapshot. A missing or invalid policy blocks
 the action rather than yielding an allow decision.
 
+## Enforcement And Audit
+
+`internal/enforce` is the only exported route to the synthetic `metrics.read`, `ticket.update`,
+`service.restart`, and `subagent.spawn` adapters. It re-evaluates flags and policy, applies budget
+limits, appends a sanitized decision to SQLite, and only then invokes an adapter for `ALLOW`.
+`SHADOW`, `BLOCK`, `REQUIRE_APPROVAL`, and `HALT_RUN` decisions are recorded without a side effect.
+Duplicate decision IDs are rejected before a second adapter invocation.
+
+Read a persisted event with:
+
+```sh
+go run ./cmd/abcp ledger get --db abcp-audit.db DECISION_ID
+```
+
 ## Direction
 
 The completed lab will route every synthetic incident-response tool proposal through one
-enforcement interface. Budget checks and append-only audit records will be introduced in
-subsequent tasks. High-risk actions will fail closed when a required control is unavailable.
+enforcement interface. Emergency controls and rollout evaluation will be introduced in subsequent
+tasks. High-risk actions fail closed when a required control is unavailable.

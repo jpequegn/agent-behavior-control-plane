@@ -36,6 +36,11 @@
       "variants": { "off": false, "on": true },
       "defaultVariant": "off"
     },
+    "tool.subagent.spawn.halt": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    },
     "tool.ticket.update.halt": {
       "state": "ENABLED",
       "variants": { "off": false, "on": true },
