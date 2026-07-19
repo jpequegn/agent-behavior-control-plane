@@ -152,6 +152,7 @@ type PolicyDecision struct {
 	Decision      Decision  `json:"decision"`
 	DecisionID    string    `json:"decision_id"`
 	FlagSnapshot  string    `json:"flag_snapshot"`
+	PolicyDigest  string    `json:"policy_digest"`
 	PolicyVersion string    `json:"policy_version"`
 	ReasonCodes   []string  `json:"reason_codes"`
 	RecordedAt    time.Time `json:"recorded_at"`
@@ -161,8 +162,8 @@ func (d PolicyDecision) Validate() error {
 	if !d.Decision.Valid() {
 		return fmt.Errorf("invalid decision %q", d.Decision)
 	}
-	if d.DecisionID == "" || d.PolicyVersion == "" || d.FlagSnapshot == "" {
-		return errors.New("decision_id, policy_version, and flag_snapshot are required")
+	if d.DecisionID == "" || d.PolicyVersion == "" || d.PolicyDigest == "" || d.FlagSnapshot == "" {
+		return errors.New("decision_id, policy_version, policy_digest, and flag_snapshot are required")
 	}
 	if d.RecordedAt.IsZero() {
 		return errors.New("recorded_at is required")

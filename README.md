@@ -29,9 +29,17 @@ Targeting is stable for each `tenant:run` key: 5% of keys enter the canary cohor
 the shadow cohort, and the remainder the control cohort. The local provider is deliberately
 provider-neutral so a flagd provider can replace it without changing the enforcement boundary.
 
+## Policy Controls
+
+`internal/policy/incident.rego` and its version file are embedded in the binary and evaluated with
+OPA. The policy permits only the synthetic incident tools, requires verified citations for writes,
+requires approval for `service.restart`, enforces autonomy and sub-agent limits, and blocks any
+untrusted instruction from authorizing a tool call. Every policy decision carries the embedded
+policy's `sha256:` digest, version, and evaluated flag snapshot. A missing or invalid policy blocks
+the action rather than yielding an allow decision.
+
 ## Direction
 
 The completed lab will route every synthetic incident-response tool proposal through one
-enforcement interface. Policy decisions, budget checks, and append-only audit records will be
-introduced in subsequent tasks. High-risk actions will fail closed when a required control is
-unavailable.
+enforcement interface. Budget checks and append-only audit records will be introduced in
+subsequent tasks. High-risk actions will fail closed when a required control is unavailable.
