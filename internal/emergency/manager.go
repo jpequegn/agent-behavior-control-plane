@@ -44,6 +44,8 @@ func NewManager(provider *flags.LocalProvider) (*Manager, error) {
 	return &Manager{base: provider.Config(), mutations: map[string]Mutation{}, provider: provider}, nil
 }
 
+func (m *Manager) Provider() *flags.LocalProvider { return m.provider }
+
 func (m *Manager) Apply(request Request, now time.Time) (Mutation, error) {
 	if err := validateRequest(request, now); err != nil {
 		return Mutation{}, err
