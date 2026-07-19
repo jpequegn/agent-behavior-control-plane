@@ -16,8 +16,11 @@ import (
 	"time"
 
 	"github.com/jpequegn/agent-behavior-control-plane/internal/audit"
+	"github.com/jpequegn/agent-behavior-control-plane/internal/control"
 	"github.com/jpequegn/agent-behavior-control-plane/internal/emergency"
+	"github.com/jpequegn/agent-behavior-control-plane/internal/enforce"
 	"github.com/jpequegn/agent-behavior-control-plane/internal/flags"
+	"github.com/jpequegn/agent-behavior-control-plane/internal/policy"
 	"github.com/jpequegn/agent-behavior-control-plane/internal/server"
 	"github.com/spf13/cobra"
 )
@@ -36,8 +39,56 @@ func newRootCommand() *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
-	root.AddCommand(newControlCommand(), newLedgerCommand(), newServeCommand())
+	root.AddCommand(newControlCommand(), newDemoCommand(), newLedgerCommand(), newServeCommand())
 	return root
+}
+
+func newDemoCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "demo incident",
+		Short: "Run the synthetic incident safety demo",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if args[0] != "incident" {
+				return fmt.Errorf("unknown demo %q", args[0])
+			}
+			return runIncidentDemo(cmd.Context(), cmd.OutOrStdout())
+		},
+	}
+}
+
+func runIncidentDemo(ctx context.Context, output interface{ Write([]byte) (int, error) }) error {
+	controls, err := newServerControls()
+	if err != nil {
+		return err
+	}
+	flagEvaluator, err := flags.NewEvaluator(controls.Provider(), flags.DefaultCohortConfig())
+	if err != nil {
+		return err
+	}
+	ledger, err := audit.Open(":memory:")
+	if err != nil {
+		return err
+	}
+	defer ledger.Close()
+	engine, err := enforce.NewEngine(flagEvaluator, policy.NewEvaluator(ctx), ledger, control.DefaultIncidentToolCatalog(), enforce.DefaultBudgetLimits())
+	if err != nil {
+		return err
+	}
+	engine.WithBoundaryHook(controls)
+	restart, err := engine.Execute(ctx, enforce.Request{Environment: control.EnvironmentDevelopment, Proposal: control.IncidentRestartWithoutEvidenceFixture(), RequestedAutonomy: control.AutonomyAct, TrustedInstruction: true})
+	if err != nil {
+		return err
+	}
+	_, err = controls.Apply(emergency.Request{Target: flags.FlagGlobalHalt, Value: true, Owner: "demo", Reason: "mid-run halt", ExpiresAt: time.Now().UTC().Add(time.Minute)}, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	halted, err := engine.Execute(ctx, enforce.Request{Environment: control.EnvironmentDevelopment, Proposal: control.IncidentReadFixture(), RequestedAutonomy: control.AutonomyAct, TrustedInstruction: true})
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(output).Encode(map[string]any{"evidenceless_restart": restart.Decision.Decision, "next_boundary_after_halt": halted.Decision.Decision})
 }
 
 func newControlCommand() *cobra.Command {
