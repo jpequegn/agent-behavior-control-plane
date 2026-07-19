@@ -1,18 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/jpequegn/agent-behavior-control-plane/internal/audit"
+	"github.com/jpequegn/agent-behavior-control-plane/internal/emergency"
+	"github.com/jpequegn/agent-behavior-control-plane/internal/flags"
 	"github.com/jpequegn/agent-behavior-control-plane/internal/server"
 	"github.com/spf13/cobra"
 )
@@ -31,8 +36,74 @@ func newRootCommand() *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
-	root.AddCommand(newLedgerCommand(), newServeCommand())
+	root.AddCommand(newControlCommand(), newLedgerCommand(), newServeCommand())
 	return root
+}
+
+func newControlCommand() *cobra.Command {
+	var endpoint string
+	control := &cobra.Command{Use: "control", Short: "Manage emergency controls on a running server"}
+	control.PersistentFlags().StringVar(&endpoint, "endpoint", "http://127.0.0.1:8080", "control-plane HTTP endpoint")
+	var owner, reason, expiry string
+	set := &cobra.Command{
+		Use:   "set TARGET VALUE",
+		Short: "Set a temporary emergency control",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			expiresAt, err := time.Parse(time.RFC3339, expiry)
+			if err != nil {
+				return fmt.Errorf("parse expiry: %w", err)
+			}
+			value := any(args[1])
+			if args[1] == "true" {
+				value = true
+			}
+			return mutateControl(cmd.Context(), endpoint, http.MethodPost, "", emergency.Request{Target: args[0], Value: value, Owner: owner, Reason: reason, ExpiresAt: expiresAt}, cmd.OutOrStdout())
+		},
+	}
+	set.Flags().StringVar(&owner, "owner", "", "operator responsible for the control")
+	set.Flags().StringVar(&reason, "reason", "", "reason for the control")
+	set.Flags().StringVar(&expiry, "expires-at", "", "RFC3339 expiry timestamp")
+	list := &cobra.Command{Use: "list", Short: "List active emergency controls", RunE: func(cmd *cobra.Command, _ []string) error {
+		return mutateControl(cmd.Context(), endpoint, http.MethodGet, "", nil, cmd.OutOrStdout())
+	}}
+	clear := &cobra.Command{Use: "clear ID", Short: "Clear an emergency control", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		return mutateControl(cmd.Context(), endpoint, http.MethodDelete, args[0], nil, cmd.OutOrStdout())
+	}}
+	control.AddCommand(set, list, clear)
+	return control
+}
+
+func mutateControl(ctx context.Context, endpoint, method, id string, value any, output interface{ Write([]byte) (int, error) }) error {
+	var body []byte
+	if value != nil {
+		var err error
+		body, err = json.Marshal(value)
+		if err != nil {
+			return err
+		}
+	}
+	path := strings.TrimRight(endpoint, "/") + "/controls"
+	if id != "" {
+		path += "/" + id
+	}
+	request, err := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	if value != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode >= 300 {
+		return fmt.Errorf("control API returned %s", response.Status)
+	}
+	_, err = io.Copy(output, response.Body)
+	return err
 }
 
 func newLedgerCommand() *cobra.Command {
@@ -81,10 +152,14 @@ func newServeCommand() *cobra.Command {
 }
 
 func serve(parent context.Context, address string, output interface{ Write([]byte) (int, error) }) error {
+	controls, err := newServerControls()
+	if err != nil {
+		return err
+	}
 	logger := slog.New(slog.NewTextHandler(output, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	httpServer := &http.Server{
 		Addr:              address,
-		Handler:           server.New(logger).Handler(),
+		Handler:           server.New(logger).WithControls(controls).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	stop := make(chan os.Signal, 1)
@@ -101,9 +176,25 @@ func serve(parent context.Context, address string, output interface{ Write([]byt
 	}()
 
 	logger.Info("control plane listening", "address", address)
-	err := httpServer.ListenAndServe()
+	err = httpServer.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
 	return err
+}
+
+func newServerControls() (*emergency.Manager, error) {
+	content, err := os.ReadFile("config/flags.json")
+	if err != nil {
+		return nil, fmt.Errorf("read flag configuration: %w", err)
+	}
+	config, err := flags.ParseFlagdJSON(content)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := flags.NewLocalProvider(config)
+	if err != nil {
+		return nil, err
+	}
+	return emergency.NewManager(provider)
 }
