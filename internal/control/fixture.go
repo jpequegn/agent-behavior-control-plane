@@ -26,3 +26,10 @@ func IncidentRestartWithoutEvidenceFixture() ProposedAction {
 	proposal.Task.Risk = RiskHigh
 	return proposal
 }
+
+func IncidentSubagentFixture() ProposedAction {
+	proposal := IncidentReadFixture()
+	proposal.Action = Action{Tool: "subagent.spawn", Operation: OperationSpawn, Resource: "demo/INC-42"}
+	proposal.Task.Risk = RiskMedium
+	return proposal
+}

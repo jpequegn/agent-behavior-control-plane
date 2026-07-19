@@ -45,6 +45,7 @@ func DefaultBehaviorConfig() BehaviorConfig {
 		Tools: map[string]ToolControl{
 			"metrics.read":    {Enabled: true, WriteMode: false},
 			"service.restart": {Enabled: true, WriteMode: true},
+			"subagent.spawn":  {Enabled: true, WriteMode: false},
 			"ticket.update":   {Enabled: true, WriteMode: true},
 		},
 		Version: "behavior-v1",

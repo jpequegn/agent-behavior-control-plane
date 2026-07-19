@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jpequegn/agent-behavior-control-plane/internal/audit"
 	"github.com/jpequegn/agent-behavior-control-plane/internal/server"
 	"github.com/spf13/cobra"
 )
@@ -29,8 +31,40 @@ func newRootCommand() *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
-	root.AddCommand(newServeCommand())
+	root.AddCommand(newLedgerCommand(), newServeCommand())
 	return root
+}
+
+func newLedgerCommand() *cobra.Command {
+	ledger := &cobra.Command{
+		Use:   "ledger",
+		Short: "Read sanitized enforcement decisions from SQLite",
+	}
+	var databasePath string
+	get := &cobra.Command{
+		Use:   "get DECISION_ID",
+		Short: "Print one sanitized audit decision as JSON",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return getLedgerEvent(cmd.Context(), databasePath, args[0], cmd.OutOrStdout())
+		},
+	}
+	get.Flags().StringVar(&databasePath, "db", "abcp-audit.db", "SQLite audit ledger path")
+	ledger.AddCommand(get)
+	return ledger
+}
+
+func getLedgerEvent(ctx context.Context, databasePath, decisionID string, output interface{ Write([]byte) (int, error) }) error {
+	ledger, err := audit.Open(databasePath)
+	if err != nil {
+		return err
+	}
+	defer ledger.Close()
+	event, err := ledger.Get(ctx, decisionID)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(output).Encode(event)
 }
 
 func newServeCommand() *cobra.Command {

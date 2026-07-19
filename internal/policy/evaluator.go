@@ -141,6 +141,15 @@ func (e *Evaluator) Evaluate(ctx context.Context, input Input) (control.PolicyDe
 	return e.decision(input, output.Decision, output.ReasonCodes), nil
 }
 
+// FailClosedDecision represents a control-plane failure without allowing the action.
+// Callers use it when another required control, such as flag evaluation, is unavailable.
+func (e *Evaluator) FailClosedDecision(input Input, reason string) control.PolicyDecision {
+	if e == nil {
+		return unavailableDecision(input, reason, "")
+	}
+	return e.decision(input, control.DecisionBlock, []string{reason})
+}
+
 type policyOutput struct {
 	Decision    control.Decision `json:"decision"`
 	ReasonCodes []string         `json:"reason_codes"`

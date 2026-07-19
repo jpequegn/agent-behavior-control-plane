@@ -15,6 +15,7 @@ func DefaultIncidentToolCatalog() ToolCatalog {
 		{Name: "metrics.read", Operation: OperationRead, Risk: RiskLow},
 		{Name: "ticket.update", Operation: OperationWrite, Risk: RiskMedium},
 		{Name: "service.restart", Operation: OperationWrite, Risk: RiskHigh},
+		{Name: "subagent.spawn", Operation: OperationSpawn, Risk: RiskMedium},
 	}}
 }
 

@@ -46,6 +46,11 @@ catalog_match if {
 	input.proposal.action.operation == "write"
 }
 
+catalog_match if {
+	input.proposal.action.tool == "subagent.spawn"
+	input.proposal.action.operation == "spawn"
+}
+
 verified_evidence if {
 	input.proposal.evidence.verifier_status == "passed"
 	count(input.proposal.evidence.citations) > 0
