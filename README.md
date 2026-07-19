@@ -52,6 +52,19 @@ Read a persisted event with:
 go run ./cmd/abcp ledger get --db abcp-audit.db DECISION_ID
 ```
 
+## Emergency Controls
+
+Run `abcp serve` from the repository root to expose `GET`, `POST`, and `DELETE` control endpoints
+at `/controls`. Each change requires an owner, reason, and RFC3339 expiry. The manager applies
+updates to the shared flag provider immediately, records first next-boundary observation time, and
+restores the baseline configuration on expiry.
+
+```sh
+go run ./cmd/abcp control set agent.global_halt true \
+  --owner oncall --reason incident --expires-at 2026-07-19T18:00:00Z
+go run ./cmd/abcp control list
+```
+
 ## Direction
 
 The completed lab will route every synthetic incident-response tool proposal through one

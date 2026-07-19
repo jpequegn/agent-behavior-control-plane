@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/jpequegn/agent-behavior-control-plane/internal/audit"
 	"github.com/jpequegn/agent-behavior-control-plane/internal/control"
@@ -50,12 +51,17 @@ type Result struct {
 }
 
 type Engine struct {
-	adapters map[string]toolAdapter
-	budgets  BudgetLimits
-	catalog  control.ToolCatalog
-	flags    *flags.Evaluator
-	ledger   *audit.Ledger
-	policy   *policy.Evaluator
+	adapters     map[string]toolAdapter
+	boundaryHook BoundaryHook
+	budgets      BudgetLimits
+	catalog      control.ToolCatalog
+	flags        *flags.Evaluator
+	ledger       *audit.Ledger
+	policy       *policy.Evaluator
+}
+
+type BoundaryHook interface {
+	BeforeBoundary(time.Time)
 }
 
 func NewEngine(flagEvaluator *flags.Evaluator, policyEvaluator *policy.Evaluator, ledger *audit.Ledger, catalog control.ToolCatalog, budgets BudgetLimits) (*Engine, error) {
@@ -82,9 +88,17 @@ func NewEngine(flagEvaluator *flags.Evaluator, policyEvaluator *policy.Evaluator
 	}, nil
 }
 
+func (e *Engine) WithBoundaryHook(hook BoundaryHook) *Engine {
+	e.boundaryHook = hook
+	return e
+}
+
 // Execute is the only exported path to synthetic tool side effects. It persists a decision before
 // invoking an internal adapter, so a missing audit ledger prevents execution.
 func (e *Engine) Execute(ctx context.Context, request Request) (Result, error) {
+	if e.boundaryHook != nil {
+		e.boundaryHook.BeforeBoundary(time.Now().UTC())
+	}
 	input := policy.DefaultInput(request.Proposal, "sha256:flags-unavailable")
 	input.ApprovalGranted = request.ApprovalGranted
 	input.RequestedAutonomy = request.RequestedAutonomy
