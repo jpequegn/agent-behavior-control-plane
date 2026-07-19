@@ -1,0 +1,45 @@
+{
+  "$schema": "https://flagd.dev/schema/v0/flags.json",
+  "flags": {
+    "agent.disable_memory_write": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    },
+    "agent.disable_subagents": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    },
+    "agent.global_halt": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    },
+    "agent.max_autonomy": {
+      "state": "ENABLED",
+      "variants": { "act": "act", "observe": "observe" },
+      "defaultVariant": "act"
+    },
+    "agent.model_route": {
+      "state": "ENABLED",
+      "variants": { "fallback": "incident-model-fallback", "primary": "incident-model-v1" },
+      "defaultVariant": "primary"
+    },
+    "tool.metrics.read.halt": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    },
+    "tool.service.restart.halt": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    },
+    "tool.ticket.update.halt": {
+      "state": "ENABLED",
+      "variants": { "off": false, "on": true },
+      "defaultVariant": "off"
+    }
+  }
+}
