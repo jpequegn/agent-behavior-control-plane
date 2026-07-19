@@ -35,7 +35,8 @@ func TestAuditEventSanitizesResourceAndCitations(t *testing.T) {
 	proposal.Evidence.Citations = []string{"metric:cpu-7", "token:should-not-appear"}
 	decision := PolicyDecision{
 		Decision: DecisionRequireApproval, DecisionID: "dec-456", FlagSnapshot: "sha256:flags",
-		PolicyVersion: "sha256:policy", RecordedAt: time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC),
+		PolicyDigest: "sha256:policy", PolicyVersion: "policy-v1",
+		RecordedAt: time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC),
 	}
 	event := NewAuditEvent(proposal, decision)
 	encoded, err := json.Marshal(event)
